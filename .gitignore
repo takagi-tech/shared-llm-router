@@ -1,0 +1,19 @@
+.local/
+.venv/
+.env
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+web/node_modules/
+web/dist/
+test-results/
+playwright-report/
+*.egg-info/
+dist/
+
+
+# Local agent configuration and generated TypeScript state
+.agents/
+.codex/
+*.tsbuildinfo

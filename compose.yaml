@@ -1,0 +1,69 @@
+name: llm-router
+services:
+  router:
+    image: llm-router:local
+    build: .
+    user: "${LLM_ROUTER_UID:-1000}:${LLM_ROUTER_GID:-1000}"
+    # Linux host networking preserves the registered localhost upstream URLs.
+    network_mode: host
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 20s
+    environment:
+      LLM_ROUTER_HOST: "${LLM_ROUTER_HOST:-127.0.0.1}"
+      LLM_ROUTER_PORT: "${LLM_ROUTER_PORT:-18080}"
+      LLM_ROUTER_DATA_DIR: /data
+      LLM_ROUTER_RUNNER_KEY_FILE: /run/runner.key
+      LLM_ROUTER_BENCHMARK_ROUTER_URL: http://127.0.0.1:${LLM_ROUTER_PORT:-18080}/v1
+      LLM_ROUTER_SECURE_COOKIES: "${LLM_ROUTER_SECURE_COOKIES:-false}"
+    volumes:
+      - ./.local/data:/data
+      - ./.local/runner.key:/run/runner.key:ro
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+  hardware:
+    image: llm-router:local
+    profiles: [hardware]
+    user: "${LLM_ROUTER_UID:-1000}:${LLM_ROUTER_GID:-1000}"
+    network_mode: host
+    init: true
+    restart: unless-stopped
+    command: [hardware-exporter, --port, "18082"]
+    gpus: all
+    environment:
+      NVIDIA_DRIVER_CAPABILITIES: utility
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:18082/metrics',timeout=4)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+  runner:
+    image: router-guidellm:0.7.3
+    build:
+      context: .
+      dockerfile: runner/Dockerfile
+    user: "${LLM_ROUTER_UID:-1000}:${LLM_ROUTER_GID:-1000}"
+    network_mode: host
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 20s
+    environment:
+      LLM_ROUTER_RUNNER_KEY_FILE: /run/runner.key
+    volumes:
+      - ./.local/runner.key:/run/runner.key:ro
+      - ./.local/guidellm/runs:/runner-data
+      - ./.local/guidellm/cache:/cache
+      - ./.local/data/datasets:/datasets:ro
+      - ./.local/data/tokenizers:/tokenizers:ro
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
